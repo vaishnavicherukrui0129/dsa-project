@@ -1,0 +1,2128 @@
+<title>Product Search and Sorting System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link
+  rel="stylesheet"
+  href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap"
+/>
+<style>
+  /* Layout: one working surface with four tabs (catalogue, search, sort visualiser, benchmark), data table first, controls beside or above it. */
+  :root {
+    --bg: #ebefed;
+    --surface: #f8faf9;
+    --surface-2: #e1e8e5;
+    --ink: #12201c;
+    --muted: #586964;
+    --line: #ced8d4;
+    --accent: #0a6b5c;
+    --on-accent: #ffffff;
+    --accent-soft: #d2ebe4;
+    --hot: #c2410c;
+    --hot-soft: #fbe2d3;
+    --good: #2b8a3e;
+    --good-soft: #daf0df;
+    --bad: #c92a2a;
+    --bad-soft: #fbe0e0;
+    --display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+    --body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0d1412;
+      --surface: #151f1c;
+      --surface-2: #1e2b27;
+      --ink: #e5eeea;
+      --muted: #8da19a;
+      --line: #2a3a35;
+      --accent: #3ebba3;
+      --on-accent: #06201b;
+      --accent-soft: #17382f;
+      --hot: #ff8a4c;
+      --hot-soft: #3f2518;
+      --good: #5cc274;
+      --good-soft: #1a3322;
+      --bad: #ff7b7b;
+      --bad-soft: #3d1b1b;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0d1412;
+    --surface: #151f1c;
+    --surface-2: #1e2b27;
+    --ink: #e5eeea;
+    --muted: #8da19a;
+    --line: #2a3a35;
+    --accent: #3ebba3;
+    --on-accent: #06201b;
+    --accent-soft: #17382f;
+    --hot: #ff8a4c;
+    --hot-soft: #3f2518;
+    --good: #5cc274;
+    --good-soft: #1a3322;
+    --bad: #ff7b7b;
+    --bad-soft: #3d1b1b;
+    color-scheme: dark;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--body);
+    font-size: 15px;
+    line-height: 1.5;
+    padding-inline: 16px;
+  }
+  .wrap {
+    max-width: 1080px;
+    margin-inline: auto;
+    padding-block: 20px 48px;
+  }
+  h1,
+  h2,
+  h3 {
+    font-family: var(--display);
+    margin: 0;
+    text-wrap: balance;
+    letter-spacing: -0.01em;
+  }
+  h1 {
+    font-size: clamp(1.5rem, 4.5vw, 2.1rem);
+    line-height: 1.1;
+  }
+  h2 {
+    font-size: 1.15rem;
+  }
+  h3 {
+    font-size: 0.95rem;
+  }
+  p {
+    margin: 0;
+  }
+  .mono {
+    font-family: var(--mono);
+  }
+  .muted {
+    color: var(--muted);
+  }
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  header.top {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding-bottom: 16px;
+  }
+  header.top p {
+    max-width: 60ch;
+    color: var(--muted);
+  }
+
+  nav.tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 10px;
+    margin-bottom: 16px;
+  }
+  nav.tabs button {
+    font: inherit;
+    font-weight: 500;
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid transparent;
+    border-radius: 8px;
+    padding: 7px 14px;
+    cursor: pointer;
+  }
+  nav.tabs button:hover {
+    color: var(--ink);
+    background: var(--surface-2);
+  }
+  nav.tabs button[aria-selected="true"] {
+    background: var(--ink);
+    color: var(--bg);
+  }
+  button:focus-visible,
+  input:focus-visible,
+  select:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 16px;
+    min-width: 0;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 320px;
+    gap: 16px;
+    align-items: start;
+  }
+  .stack {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-width: 0;
+  }
+  .row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: flex-end;
+  }
+  .head {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px 16px;
+    margin-bottom: 12px;
+  }
+
+  label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--muted);
+    min-width: 0;
+  }
+  input,
+  select {
+    font: inherit;
+    font-size: 0.95rem;
+    color: var(--ink);
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    padding: 8px 10px;
+    min-width: 0;
+    width: 100%;
+  }
+  input:disabled,
+  select:disabled {
+    opacity: 0.6;
+  }
+  .fields {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  .fields .wide {
+    grid-column: 1/-1;
+  }
+  .btn {
+    font: inherit;
+    font-weight: 600;
+    font-size: 0.9rem;
+    border-radius: 7px;
+    padding: 8px 14px;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    color: var(--ink);
+    cursor: pointer;
+  }
+  .btn:hover {
+    background: var(--surface-2);
+  }
+  .btn.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--on-accent);
+  }
+  .btn.primary:hover {
+    filter: brightness(1.08);
+  }
+  .btn:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+  .btn.small {
+    padding: 4px 9px;
+    font-size: 0.8rem;
+  }
+  .btn.danger {
+    color: var(--bad);
+  }
+  .btn.danger.armed {
+    background: var(--bad);
+    border-color: var(--bad);
+    color: var(--surface);
+  }
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .tablewrap {
+    overflow-x: auto;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+  }
+  th {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+    text-align: left;
+    font-weight: 500;
+    padding: 6px 10px;
+    border-bottom: 1px solid var(--line);
+    white-space: nowrap;
+  }
+  td {
+    padding: 9px 10px;
+    border-bottom: 1px solid var(--line);
+    vertical-align: middle;
+  }
+  tbody tr:last-child td {
+    border-bottom: 0;
+  }
+  td.num,
+  th.num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+  td.id {
+    font-family: var(--mono);
+    color: var(--muted);
+  }
+  tr.hit td {
+    background: var(--good-soft);
+  }
+  .cat {
+    font-size: 0.78rem;
+    background: var(--surface-2);
+    border-radius: 99px;
+    padding: 2px 9px;
+    white-space: nowrap;
+  }
+  .meter {
+    display: inline-block;
+    width: 38px;
+    height: 5px;
+    background: var(--surface-2);
+    border-radius: 3px;
+    margin-left: 8px;
+    vertical-align: middle;
+    overflow: hidden;
+  }
+  .meter i {
+    display: block;
+    height: 100%;
+    background: var(--accent);
+  }
+  .empty {
+    padding: 28px 8px;
+    text-align: center;
+    color: var(--muted);
+  }
+
+  .chips {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 10px;
+  }
+  .chip {
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 9px 12px;
+    min-width: 0;
+  }
+  .chip b {
+    display: block;
+    font-family: var(--mono);
+    font-size: 1.05rem;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    overflow-wrap: anywhere;
+  }
+  .chip span {
+    font-size: 0.72rem;
+    color: var(--muted);
+  }
+  .chip.ok b {
+    color: var(--good);
+  }
+  .chip.no b {
+    color: var(--bad);
+  }
+
+  .strip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  .cell {
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    min-width: 30px;
+    text-align: center;
+    padding: 4px 3px;
+    border-radius: 5px;
+    background: var(--surface-2);
+    color: var(--muted);
+    border: 1px solid transparent;
+  }
+  .cell.seen {
+    background: var(--accent-soft);
+    color: var(--ink);
+  }
+  .cell.probe {
+    background: var(--hot-soft);
+    color: var(--hot);
+    border-color: var(--hot);
+  }
+  .cell.found {
+    background: var(--good);
+    color: var(--surface);
+    font-weight: 600;
+  }
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 16px;
+    font-size: 0.78rem;
+    color: var(--muted);
+  }
+  .legend i {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 3px;
+    margin-right: 6px;
+    vertical-align: -1px;
+  }
+  .note {
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+  .callout {
+    background: var(--accent-soft);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 0.86rem;
+  }
+
+  .bars {
+    display: flex;
+    align-items: flex-end;
+    gap: 3px;
+    height: 260px;
+    padding: 10px 4px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .col {
+    flex: 1 1 0;
+    min-width: 0;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 3px;
+  }
+  .bar {
+    width: 100%;
+    background: var(--accent);
+    border-radius: 4px 4px 0 0;
+    transition: height 0.12s;
+  }
+  .bar.cmp {
+    background: var(--hot);
+  }
+  .bar.mv {
+    background: var(--ink);
+  }
+  .bar.done {
+    background: var(--good);
+  }
+  .bv {
+    font-family: var(--mono);
+    font-size: 0.62rem;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .labels {
+    display: flex;
+    gap: 3px;
+    padding: 6px 4px 0;
+  }
+  .labels span {
+    flex: 1 1 0;
+    min-width: 0;
+    font-size: 0.68rem;
+    color: var(--muted);
+    text-align: center;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .bar {
+      transition: none;
+    }
+  }
+
+  .race {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .racerow {
+    display: grid;
+    grid-template-columns: 130px minmax(0, 1fr);
+    gap: 4px 12px;
+    align-items: center;
+  }
+  .racerow .name {
+    font-weight: 600;
+    font-size: 0.88rem;
+  }
+  .track {
+    height: 20px;
+    background: var(--surface-2);
+    border-radius: 5px;
+    overflow: hidden;
+  }
+  .track i {
+    display: block;
+    height: 100%;
+    width: 0;
+    background: var(--accent);
+    transition: width 0.4s;
+  }
+  .track i.s {
+    background: var(--hot);
+  }
+  .racerow .res {
+    grid-column: 2;
+    font-family: var(--mono);
+    font-size: 0.74rem;
+    color: var(--muted);
+  }
+  .status {
+    min-height: 1.4em;
+    font-size: 0.86rem;
+  }
+  .status.err {
+    color: var(--bad);
+  }
+  .status.ok {
+    color: var(--good);
+  }
+  .cplx {
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    color: var(--muted);
+  }
+
+  .catgrid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+    align-items: start;
+  }
+  .catgrid .card {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .catgrid .fields3 {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+  }
+  .catgrid .chips {
+    grid-template-columns: repeat(auto-fit, minmax(105px, 1fr));
+  }
+  .tag {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    border-radius: 99px;
+    padding: 2px 9px;
+    background: var(--accent-soft);
+    color: var(--ink);
+  }
+  .tag.alt {
+    background: var(--hot-soft);
+  }
+  @media (max-width: 980px) {
+    .catgrid {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+  @media (max-width: 480px) {
+    .catgrid .fields3 {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+  @media (max-width: 860px) {
+    .grid {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+  @media (max-width: 520px) {
+    .racerow {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .racerow .res {
+      grid-column: 1;
+    }
+    .bars {
+      height: 200px;
+    }
+  }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="eyebrow">Data Structures and Algorithms · Mini project</div>
+    <h1>Product Search and Sorting System</h1>
+    <p>
+      An e-commerce catalogue running the five algorithms from the report.
+      Results update as you type, and every run shows its real comparison count
+      and time.
+    </p>
+  </header>
+
+  <nav class="tabs" role="tablist" aria-label="Sections">
+    <button
+      role="tab"
+      id="tab-products"
+      aria-selected="true"
+      data-tab="products"
+    >
+      Products
+    </button>
+    <button role="tab" id="tab-search" aria-selected="false" data-tab="search">
+      Search
+    </button>
+    <button role="tab" id="tab-sort" aria-selected="false" data-tab="sort">
+      Sort visualiser
+    </button>
+    <button role="tab" id="tab-cat" aria-selected="false" data-tab="cat">
+      By category
+    </button>
+    <button role="tab" id="tab-bench" aria-selected="false" data-tab="bench">
+      Benchmark
+    </button>
+  </nav>
+
+  <!-- PRODUCTS -->
+  <section id="panel-products" role="tabpanel" aria-labelledby="tab-products">
+    <div class="grid">
+      <div class="card">
+        <div class="head">
+          <div>
+            <h2>Catalogue</h2>
+            <p class="note" id="facts"></p>
+          </div>
+          <div class="actions">
+            <button class="btn small" id="btnGen" type="button">
+              Add 15 random products
+            </button>
+            <button class="btn small" id="btnReset" type="button">
+              Reset to sample data
+            </button>
+          </div>
+        </div>
+        <div class="tablewrap" id="catalogue"></div>
+      </div>
+
+      <form class="card stack" id="form" novalidate>
+        <div>
+          <h2 id="formTitle">Add product</h2>
+          <p class="note" id="formHint">
+            Each product has an ID, name, category, price, rating and stock.
+          </p>
+        </div>
+        <div class="fields">
+          <label
+            >Product ID<input id="fId" inputmode="numeric" autocomplete="off"
+          /></label>
+          <label
+            >Stock<input id="fStock" inputmode="numeric" autocomplete="off"
+          /></label>
+          <label class="wide"
+            >Name<input id="fName" maxlength="50" autocomplete="off"
+          /></label>
+          <label class="wide"
+            >Category<input
+              id="fCat"
+              maxlength="30"
+              list="catlist"
+              autocomplete="off" /><datalist id="catlist"></datalist
+          ></label>
+          <label
+            >Price (₹)<input id="fPrice" inputmode="decimal" autocomplete="off"
+          /></label>
+          <label
+            >Rating (0 to 5)<input
+              id="fRating"
+              inputmode="decimal"
+              autocomplete="off"
+          /></label>
+        </div>
+        <div class="status" id="formMsg" aria-live="polite"></div>
+        <div class="actions">
+          <button class="btn primary" id="btnSave" type="submit">
+            Add product
+          </button>
+          <button class="btn" id="btnCancel" type="button" hidden>
+            Cancel
+          </button>
+        </div>
+      </form>
+    </div>
+  </section>
+
+  <!-- SEARCH -->
+  <section
+    id="panel-search"
+    role="tabpanel"
+    aria-labelledby="tab-search"
+    hidden
+  >
+    <div class="stack">
+      <div class="card stack">
+        <div class="row">
+          <label style="flex: 1 1 150px"
+            >Search by
+            <select id="sField">
+              <option value="id">Product ID</option>
+              <option value="name">Name</option>
+              <option value="category">Category</option>
+            </select>
+          </label>
+          <label style="flex: 1 1 190px"
+            >Algorithm
+            <select id="sAlgo">
+              <option value="linear">Linear Search</option>
+              <option value="binary">Binary Search (sorted by ID)</option>
+            </select>
+          </label>
+          <label style="flex: 2 1 240px"
+            >Query
+            <input
+              id="sQuery"
+              autocomplete="off"
+              placeholder="Try 103, or type part of a name"
+            />
+          </label>
+        </div>
+        <p class="note" id="sNote"></p>
+      </div>
+
+      <div class="chips" id="sChips"></div>
+
+      <div class="card stack">
+        <div class="head" style="margin: 0">
+          <h2>How the search moved through the array</h2>
+        </div>
+        <div class="strip" id="sStrip"></div>
+        <div class="legend" id="sLegend"></div>
+        <p class="note" id="sTrace"></p>
+        <div class="cplx" id="sCplx"></div>
+      </div>
+
+      <div class="card">
+        <div class="head"><h2>Results</h2></div>
+        <div class="tablewrap" id="sResults"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SORT -->
+  <section id="panel-sort" role="tabpanel" aria-labelledby="tab-sort" hidden>
+    <div class="stack">
+      <div class="card stack">
+        <div class="row">
+          <label style="flex: 1 1 130px"
+            >Sort by
+            <select id="oField">
+              <option value="price">Price</option>
+              <option value="rating">Rating</option>
+              <option value="name">Name</option>
+              <option value="id">Product ID</option>
+            </select>
+          </label>
+          <label style="flex: 1 1 130px"
+            >Order
+            <select id="oDir">
+              <option value="1">Low to high</option>
+              <option value="-1">High to low</option>
+            </select>
+          </label>
+          <label style="flex: 1 1 150px"
+            >Algorithm
+            <select id="oAlgo">
+              <option value="bubble">Bubble Sort</option>
+              <option value="selection">Selection Sort</option>
+              <option value="merge">Merge Sort</option>
+            </select>
+          </label>
+          <label style="flex: 1 1 140px"
+            >Speed
+            <input id="oSpeed" type="range" min="1" max="100" value="70" />
+          </label>
+        </div>
+        <div class="actions">
+          <button class="btn primary" id="oRun" type="button">
+            Sort catalogue
+          </button>
+          <button class="btn" id="oSkip" type="button" disabled>
+            Skip to end
+          </button>
+        </div>
+        <p class="note" id="oNote"></p>
+      </div>
+
+      <div class="chips" id="oChips"></div>
+
+      <div class="card stack">
+        <div class="head" style="margin: 0"><h2>Visualiser</h2></div>
+        <div
+          class="bars"
+          id="oBars"
+          aria-label="Bars show each product's sort value"
+        ></div>
+        <div class="labels" id="oLabels"></div>
+        <div class="legend">
+          <span><i style="background: var(--accent)"></i>Waiting</span>
+          <span><i style="background: var(--hot)"></i>Being compared</span>
+          <span><i style="background: var(--ink)"></i>Just moved</span>
+          <span><i style="background: var(--good)"></i>Sorted</span>
+        </div>
+        <div class="cplx" id="oCplx"></div>
+      </div>
+
+      <div class="card">
+        <div class="head"><h2>Catalogue order now</h2></div>
+        <div class="tablewrap" id="oTable"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- BY CATEGORY -->
+  <section id="panel-cat" role="tabpanel" aria-labelledby="tab-cat" hidden>
+    <div class="stack">
+      <p class="note">
+        Every category gets its own panel with its own algorithm, field and
+        order. Change any setting and the result updates straight away. New
+        categories appear here as soon as you add a product in them. This view
+        does not change the catalogue order.
+      </p>
+      <div class="catgrid" id="catPanels"></div>
+    </div>
+  </section>
+
+  <!-- BENCHMARK -->
+  <section id="panel-bench" role="tabpanel" aria-labelledby="tab-bench" hidden>
+    <div class="stack">
+      <div class="card stack">
+        <div>
+          <h2>Algorithm race</h2>
+          <p class="note">
+            Runs every algorithm on the same randomly generated products in your
+            browser. This is how the complexity table in the report shows up in
+            real timings.
+          </p>
+        </div>
+        <div class="row">
+          <label style="flex: 0 1 220px"
+            >Number of products
+            <select id="bN">
+              <option value="100">100</option>
+              <option value="1000">1,000</option>
+              <option value="5000" selected>5,000</option>
+              <option value="10000">10,000</option>
+            </select>
+          </label>
+          <button class="btn primary" id="bRun" type="button">
+            Run benchmark
+          </button>
+        </div>
+      </div>
+      <div class="card stack">
+        <h3>Sorting by price</h3>
+        <div class="race" id="raceSort"></div>
+        <h3 style="margin-top: 6px">
+          Finding a product by ID (average of 300 lookups)
+        </h3>
+        <div class="race" id="raceSearch"></div>
+        <div class="callout" id="bSummary" hidden></div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+  (function () {
+    "use strict";
+    const $ = (id) => document.getElementById(id);
+    const esc = (s) =>
+      String(s).replace(
+        /[&<>"']/g,
+        (c) =>
+          ({
+            "&": "&amp;",
+            "<": "&lt;",
+            ">": "&gt;",
+            '"': "&quot;",
+            "'": "&#39;",
+          })[c],
+      );
+    const rupee = (n) =>
+      "₹" + Number(n).toLocaleString("en-IN", { maximumFractionDigits: 2 });
+    const fmtN = (n) => Number(n).toLocaleString("en-IN");
+    const fmtT = (ms) =>
+      ms === 0
+        ? "< 0.1 ms"
+        : ms < 1
+          ? ms.toFixed(3) + " ms"
+          : ms < 1000
+            ? ms.toFixed(1) + " ms"
+            : (ms / 1000).toFixed(2) + " s";
+
+    /* ---------- data ---------- */
+    const SAMPLE = [
+      {
+        id: 101,
+        name: "HP Laptop",
+        category: "Electronics",
+        price: 55000,
+        rating: 4.5,
+        stock: 20,
+      },
+      {
+        id: 102,
+        name: "Samsung Phone",
+        category: "Electronics",
+        price: 25000,
+        rating: 4.6,
+        stock: 15,
+      },
+      {
+        id: 103,
+        name: "Boat Headphones",
+        category: "Electronics",
+        price: 1500,
+        rating: 4.2,
+        stock: 30,
+      },
+      {
+        id: 104,
+        name: "Nike Shoes",
+        category: "Fashion",
+        price: 4000,
+        rating: 4.4,
+        stock: 25,
+      },
+      {
+        id: 105,
+        name: "College Bag",
+        category: "Fashion",
+        price: 1200,
+        rating: 4.0,
+        stock: 40,
+      },
+    ];
+    const KEY = "product-search-sorting-v1";
+    function load() {
+      try {
+        const s = localStorage.getItem(KEY);
+        if (s) {
+          const a = JSON.parse(s);
+          if (Array.isArray(a)) return a;
+        }
+      } catch (e) {}
+      return null;
+    }
+    function persist() {
+      try {
+        localStorage.setItem(KEY, JSON.stringify(products));
+      } catch (e) {}
+    }
+    let products = load() || SAMPLE.map((p) => ({ ...p }));
+
+    const RANDOM = {
+      Electronics: {
+        items: [
+          "Wireless Mouse",
+          "Bluetooth Speaker",
+          "Smart Watch",
+          "Power Bank",
+          "USB-C Hub",
+          "Tablet",
+          "Monitor 24in",
+          "Keyboard",
+        ],
+        min: 600,
+        max: 48000,
+      },
+      Fashion: {
+        items: [
+          "Denim Jacket",
+          "Running Shoes",
+          "Leather Belt",
+          "Cotton Kurta",
+          "Sunglasses",
+          "Sports Cap",
+        ],
+        min: 300,
+        max: 6500,
+      },
+      Books: {
+        items: [
+          "DSA Made Easy",
+          "C Programming Guide",
+          "Algorithms Handbook",
+          "Python Basics",
+        ],
+        min: 180,
+        max: 1800,
+      },
+      Grocery: {
+        items: [
+          "Basmati Rice 5kg",
+          "Green Tea Pack",
+          "Almonds 500g",
+          "Olive Oil 1L",
+        ],
+        min: 90,
+        max: 1400,
+      },
+      Accessories: {
+        items: ["Phone Case", "Laptop Sleeve", "Steel Bottle", "Wallet"],
+        min: 150,
+        max: 2500,
+      },
+    };
+    const rnd = (a, b) => a + Math.random() * (b - a);
+    function randomProducts(count) {
+      const cats = Object.keys(RANDOM);
+      let next = products.reduce((m, p) => Math.max(m, p.id), 100) + 1;
+      const out = [];
+      for (let i = 0; i < count; i++) {
+        const c = cats[Math.floor(Math.random() * cats.length)],
+          d = RANDOM[c];
+        out.push({
+          id: next++,
+          name: d.items[Math.floor(Math.random() * d.items.length)],
+          category: c,
+          price: Math.round(rnd(d.min, d.max) / 10) * 10,
+          rating: Math.round(rnd(3.2, 5) * 10) / 10,
+          stock: Math.floor(rnd(3, 80)),
+        });
+      }
+      return out;
+    }
+
+    /* ---------- algorithms (instrumented) ---------- */
+    const FIELD = {
+      id: { get: (p) => p.id, label: "Product ID" },
+      price: { get: (p) => p.price, label: "Price" },
+      rating: { get: (p) => p.rating, label: "Rating" },
+      name: { get: (p) => p.name.toLowerCase(), label: "Name" },
+    };
+    function makeCmp(field, dir) {
+      const g = FIELD[field].get;
+      return (a, b) => {
+        const x = g(a),
+          y = g(b);
+        return dir * (x < y ? -1 : x > y ? 1 : 0);
+      };
+    }
+
+    function runSort(algo, arr, cmpFn, rec) {
+      const a = arr.slice(),
+        st = { cmp: 0, mv: 0 },
+        frames = [];
+      const c = (x, y) => {
+        st.cmp++;
+        return cmpFn(x, y);
+      };
+      const snap = (hi, kind) => {
+        if (rec) frames.push({ ids: a.map((p) => p.id), hi: hi.slice(), kind });
+      };
+      const n = a.length;
+      if (rec) snap([], "start");
+      if (algo === "bubble") {
+        for (let i = 0; i < n - 1; i++) {
+          let swapped = false;
+          for (let j = 0; j < n - i - 1; j++) {
+            snap([j, j + 1], "cmp");
+            if (c(a[j], a[j + 1]) > 0) {
+              const t = a[j];
+              a[j] = a[j + 1];
+              a[j + 1] = t;
+              st.mv++;
+              swapped = true;
+              snap([j, j + 1], "mv");
+            }
+          }
+          if (!swapped) break;
+        }
+      } else if (algo === "selection") {
+        for (let i = 0; i < n - 1; i++) {
+          let best = i;
+          for (let j = i + 1; j < n; j++) {
+            snap([best, j], "cmp");
+            if (c(a[j], a[best]) < 0) best = j;
+          }
+          if (best !== i) {
+            const t = a[i];
+            a[i] = a[best];
+            a[best] = t;
+            st.mv++;
+            snap([i, best], "mv");
+          }
+        }
+      } else {
+        const tmp = new Array(n);
+        const merge = (lo, mid, hi) => {
+          let i = lo,
+            j = mid + 1,
+            k = lo;
+          while (i <= mid && j <= hi) {
+            snap([i, j], "cmp");
+            if (c(a[i], a[j]) <= 0) tmp[k++] = a[i++];
+            else tmp[k++] = a[j++];
+          }
+          while (i <= mid) tmp[k++] = a[i++];
+          while (j <= hi) tmp[k++] = a[j++];
+          for (let x = lo; x <= hi; x++) {
+            a[x] = tmp[x];
+            st.mv++;
+            snap([x], "mv");
+          }
+        };
+        const ms = (lo, hi) => {
+          if (lo < hi) {
+            const mid = lo + ((hi - lo) >> 1);
+            ms(lo, mid);
+            ms(mid + 1, hi);
+            merge(lo, mid, hi);
+          }
+        };
+        ms(0, n - 1);
+      }
+      return { sorted: a, cmp: st.cmp, mv: st.mv, frames };
+    }
+    function timedSort(algo, arr, cmpFn) {
+      const reps = arr.length <= 100 ? 200 : arr.length <= 1000 ? 5 : 1;
+      const t0 = performance.now();
+      let r;
+      for (let i = 0; i < reps; i++) r = runSort(algo, arr, cmpFn, false);
+      return { ...r, ms: (performance.now() - t0) / reps };
+    }
+    const COMPLEXITY = {
+      linear: {
+        name: "Linear Search",
+        best: "O(1)",
+        avg: "O(n)",
+        worst: "O(n)",
+        space: "O(1)",
+      },
+      binary: {
+        name: "Binary Search",
+        best: "O(1)",
+        avg: "O(log n)",
+        worst: "O(log n)",
+        space: "O(1)",
+      },
+      bubble: {
+        name: "Bubble Sort",
+        best: "O(n)",
+        avg: "O(n²)",
+        worst: "O(n²)",
+        space: "O(1)",
+      },
+      selection: {
+        name: "Selection Sort",
+        best: "O(n²)",
+        avg: "O(n²)",
+        worst: "O(n²)",
+        space: "O(1)",
+      },
+      merge: {
+        name: "Merge Sort",
+        best: "O(n log n)",
+        avg: "O(n log n)",
+        worst: "O(n log n)",
+        space: "O(n)",
+      },
+    };
+    const cplxLine = (k) => {
+      const c = COMPLEXITY[k];
+      return (
+        c.name +
+        " · best " +
+        c.best +
+        " · average " +
+        c.avg +
+        " · worst " +
+        c.worst +
+        " · space " +
+        c.space
+      );
+    };
+
+    /* ---------- table ---------- */
+    let pendingDel = null,
+      pendingTimer = null;
+    function tableHTML(list, opt) {
+      opt = opt || {};
+      const hl = opt.hl || new Set();
+      if (!list.length)
+        return (
+          '<div class="empty">' +
+          (opt.empty || "No products yet. Add one with the form.") +
+          "</div>"
+        );
+      let h =
+        '<table><thead><tr><th>ID</th><th>Product</th><th>Category</th><th class="num">Price</th><th class="num">Rating</th><th class="num">Stock</th>' +
+        (opt.actions ? "<th></th>" : "") +
+        "</tr></thead><tbody>";
+      for (const p of list) {
+        h +=
+          "<tr" +
+          (hl.has(p.id) ? ' class="hit"' : "") +
+          '><td class="id">' +
+          p.id +
+          "</td><td>" +
+          esc(p.name) +
+          '</td><td><span class="cat">' +
+          esc(p.category) +
+          "</span></td>" +
+          '<td class="num">' +
+          rupee(p.price) +
+          '</td><td class="num">' +
+          Number(p.rating).toFixed(1) +
+          '<span class="meter"><i style="width:' +
+          Math.min(100, (p.rating / 5) * 100) +
+          '%"></i></span></td><td class="num">' +
+          p.stock +
+          "</td>";
+        if (opt.actions) {
+          const armed = pendingDel === p.id;
+          h +=
+            '<td class="num" style="white-space:nowrap"><button class="btn small" data-act="edit" data-id="' +
+            p.id +
+            '" type="button">Edit</button> ' +
+            '<button class="btn small danger' +
+            (armed ? " armed" : "") +
+            '" data-act="del" data-id="' +
+            p.id +
+            '" type="button">' +
+            (armed ? "Confirm delete" : "Delete") +
+            "</button></td>";
+        }
+        h += "</tr>";
+      }
+      return h + "</tbody></table>";
+    }
+
+    /* ---------- tabs ---------- */
+    let activeTab = "products";
+    document
+      .querySelectorAll("nav.tabs button")
+      .forEach((b) =>
+        b.addEventListener("click", () => showTab(b.dataset.tab)),
+      );
+    function showTab(t) {
+      activeTab = t;
+      document
+        .querySelectorAll("nav.tabs button")
+        .forEach((b) =>
+          b.setAttribute("aria-selected", String(b.dataset.tab === t)),
+        );
+      ["products", "search", "sort", "cat", "bench"].forEach((n) => {
+        $("panel-" + n).hidden = n !== t;
+      });
+      if (t === "cat") renderCat();
+      if (t === "search") runSearch();
+      if (t === "sort") {
+        stopPlay();
+        showStaticBars();
+      }
+    }
+
+    /* ---------- products tab ---------- */
+    let editingId = null;
+    const f = {
+      id: $("fId"),
+      stock: $("fStock"),
+      name: $("fName"),
+      cat: $("fCat"),
+      price: $("fPrice"),
+      rating: $("fRating"),
+    };
+    function setMsg(el, text, kind) {
+      el.textContent = text || "";
+      el.className = "status" + (kind ? " " + kind : "");
+    }
+    function renderProducts() {
+      $("catalogue").innerHTML = tableHTML(products, { actions: true });
+      const cats = new Set(products.map((p) => p.category));
+      const stock = products.reduce((s, p) => s + p.stock, 0);
+      $("facts").textContent =
+        products.length +
+        " products · " +
+        cats.size +
+        " categories · " +
+        fmtN(stock) +
+        " units in stock";
+      $("catlist").innerHTML = [...cats]
+        .map((c) => '<option value="' + esc(c) + '">')
+        .join("");
+    }
+    function clearForm() {
+      editingId = null;
+      Object.values(f).forEach((i) => (i.value = ""));
+      f.id.disabled = false;
+      $("formTitle").textContent = "Add product";
+      $("btnSave").textContent = "Add product";
+      $("btnCancel").hidden = true;
+      $("formHint").textContent =
+        "Each product has an ID, name, category, price, rating and stock.";
+    }
+    function startEdit(id) {
+      const p = products.find((x) => x.id === id);
+      if (!p) return;
+      editingId = id;
+      f.id.value = p.id;
+      f.id.disabled = true;
+      f.name.value = p.name;
+      f.cat.value = p.category;
+      f.price.value = p.price;
+      f.rating.value = p.rating;
+      f.stock.value = p.stock;
+      $("formTitle").textContent = "Update product " + id;
+      $("btnSave").textContent = "Save changes";
+      $("btnCancel").hidden = false;
+      $("formHint").textContent =
+        "The ID stays fixed. Change anything else and save.";
+      setMsg($("formMsg"), "");
+      $("form").scrollIntoView({ block: "nearest", behavior: "smooth" });
+      f.name.focus();
+    }
+    $("form").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const name = f.name.value.trim(),
+        cat = f.cat.value.trim();
+      const price = Number(f.price.value),
+        rating = Number(f.rating.value),
+        stock = Number(f.stock.value);
+      const id = editingId !== null ? editingId : Number(f.id.value);
+      const bad = (m) => setMsg($("formMsg"), m, "err");
+      if (
+        !Number.isInteger(id) ||
+        id <= 0 ||
+        (f.id.value.trim() === "" && editingId === null)
+      )
+        return bad("Enter a whole-number product ID greater than 0.");
+      if (editingId === null && products.some((p) => p.id === id))
+        return bad(
+          "A product with ID " + id + " already exists. Use a different ID.",
+        );
+      if (!name) return bad("Enter a product name.");
+      if (!cat) return bad("Enter a category.");
+      if (f.price.value.trim() === "" || !isFinite(price) || price < 0)
+        return bad("Price must be 0 or more.");
+      if (
+        f.rating.value.trim() === "" ||
+        !isFinite(rating) ||
+        rating < 0 ||
+        rating > 5
+      )
+        return bad("Rating must be between 0 and 5.");
+      if (f.stock.value.trim() === "" || !Number.isInteger(stock) || stock < 0)
+        return bad("Stock must be a whole number, 0 or more.");
+      if (editingId === null) {
+        products.push({ id, name, category: cat, price, rating, stock });
+        clearForm();
+        setMsg($("formMsg"), "Product " + id + " added.", "ok");
+      } else {
+        const p = products.find((x) => x.id === id);
+        Object.assign(p, { name, category: cat, price, rating, stock });
+        clearForm();
+        setMsg($("formMsg"), "Product " + id + " updated.", "ok");
+      }
+      changed();
+    });
+    $("btnCancel").addEventListener("click", () => {
+      clearForm();
+      setMsg($("formMsg"), "");
+    });
+    $("catalogue").addEventListener("click", (e) => {
+      const b = e.target.closest("button[data-act]");
+      if (!b) return;
+      const id = Number(b.dataset.id);
+      if (b.dataset.act === "edit") return startEdit(id);
+      if (pendingDel === id) {
+        clearTimeout(pendingTimer);
+        pendingDel = null;
+        products = products.filter((p) => p.id !== id);
+        if (editingId === id) clearForm();
+        setMsg($("formMsg"), "Product " + id + " deleted.", "ok");
+        changed();
+      } else {
+        pendingDel = id;
+        clearTimeout(pendingTimer);
+        pendingTimer = setTimeout(() => {
+          pendingDel = null;
+          renderProducts();
+        }, 3000);
+        renderProducts();
+      }
+    });
+    $("btnGen").addEventListener("click", () => {
+      products = products.concat(randomProducts(15));
+      setMsg($("formMsg"), "Added 15 random products.", "ok");
+      changed();
+    });
+    $("btnReset").addEventListener("click", () => {
+      products = SAMPLE.map((p) => ({ ...p }));
+      clearForm();
+      setMsg(
+        $("formMsg"),
+        "Catalogue reset to the 5 sample products from the report.",
+        "ok",
+      );
+      changed();
+    });
+
+    function changed() {
+      persist();
+      renderProducts();
+      if (activeTab === "cat") renderCat();
+      if (activeTab === "search") runSearch();
+      if (activeTab === "sort") {
+        stopPlay();
+        showStaticBars();
+        renderOrder();
+      }
+    }
+
+    /* ---------- search tab ---------- */
+    function runSearch() {
+      const field = $("sField").value,
+        q = $("sQuery").value.trim();
+      const algoSel = $("sAlgo");
+      if (field !== "id") {
+        algoSel.value = "linear";
+        algoSel.disabled = true;
+      } else algoSel.disabled = false;
+      const algo = algoSel.value,
+        n = products.length;
+      $("sNote").textContent =
+        field !== "id"
+          ? "Name and category searches use Linear Search because a partial match cannot be binary searched. Matching is case-insensitive."
+          : algo === "binary"
+            ? "Binary Search needs sorted data. The catalogue is copied and sorted by ID with Merge Sort first, then searched."
+            : "Linear Search checks products one by one from the start of the array.";
+      $("sCplx").textContent = cplxLine(algo);
+      const strip = $("sStrip"),
+        chips = $("sChips");
+      if (!q) {
+        chips.innerHTML = "";
+        strip.innerHTML =
+          products.length <= 150
+            ? products
+                .map((p) => '<span class="cell">' + p.id + "</span>")
+                .join("")
+            : '<span class="note">' + n + " products stored.</span>";
+        $("sLegend").innerHTML = "";
+        $("sTrace").textContent =
+          "Type a query to see which positions the algorithm looks at.";
+        $("sResults").innerHTML =
+          '<div class="empty">Results appear here as you type.</div>';
+        return;
+      }
+      let comps = 0,
+        matches = [],
+        checked = 0,
+        probes = [],
+        list = products,
+        foundIdx = -1,
+        prepInfo = "",
+        timeMs = 0,
+        matchIdx = new Set(),
+        err = "";
+      const lookup = () => {
+        comps = 0;
+        matches = [];
+        checked = 0;
+        probes = [];
+        foundIdx = -1;
+        matchIdx = new Set();
+        if (field === "id") {
+          const id = Number(q);
+          if (algo === "linear") {
+            for (let i = 0; i < n; i++) {
+              comps++;
+              checked = i + 1;
+              if (products[i].id === id) {
+                foundIdx = i;
+                matches = [products[i]];
+                break;
+              }
+            }
+          } else {
+            let lo = 0,
+              hi = n - 1;
+            while (lo <= hi) {
+              const mid = lo + ((hi - lo) >> 1);
+              comps++;
+              probes.push(mid);
+              if (list[mid].id === id) {
+                foundIdx = mid;
+                matches = [list[mid]];
+                break;
+              }
+              if (list[mid].id < id) lo = mid + 1;
+              else hi = mid - 1;
+            }
+          }
+        } else {
+          const ql = q.toLowerCase();
+          for (let i = 0; i < n; i++) {
+            comps++;
+            checked = i + 1;
+            if (products[i][field].toLowerCase().includes(ql)) {
+              matches.push(products[i]);
+              matchIdx.add(i);
+            }
+          }
+        }
+      };
+      if (field === "id" && !Number.isInteger(Number(q)))
+        err = "Product ID must be a whole number.";
+      if (err) {
+        chips.innerHTML = "";
+        strip.innerHTML = "";
+        $("sLegend").innerHTML = "";
+        $("sTrace").textContent = "";
+        $("sResults").innerHTML =
+          '<div class="empty" style="color:var(--bad)">' + err + "</div>";
+        return;
+      }
+      if (field === "id" && algo === "binary") {
+        const s = timedSort("merge", products, makeCmp("id", 1));
+        list = s.sorted;
+        prepInfo =
+          "Prepared a sorted copy with Merge Sort: " +
+          fmtN(s.cmp) +
+          " comparisons, " +
+          fmtT(s.ms);
+      }
+      const reps = n <= 200 ? 500 : n <= 2000 ? 20 : 1,
+        t0 = performance.now();
+      for (let r = 0; r < reps; r++) lookup();
+      timeMs = (performance.now() - t0) / reps;
+      const found = matches.length > 0;
+      chips.innerHTML =
+        '<div class="chip"><b>' +
+        COMPLEXITY[algo].name.replace(" Search", "") +
+        "</b><span>Algorithm</span></div>" +
+        '<div class="chip"><b>' +
+        fmtN(comps) +
+        " of " +
+        fmtN(n) +
+        "</b><span>Products compared</span></div>" +
+        '<div class="chip"><b>' +
+        fmtT(timeMs) +
+        "</b><span>Search time (average of " +
+        reps +
+        " run" +
+        (reps > 1 ? "s" : "") +
+        ")</span></div>" +
+        '<div class="chip ' +
+        (found ? "ok" : "no") +
+        '"><b>' +
+        (found
+          ? field === "id"
+            ? "Found"
+            : matches.length + " match" + (matches.length > 1 ? "es" : "")
+          : "Not found") +
+        "</b><span>Result</span></div>";
+      if (n <= 150) {
+        strip.innerHTML = list
+          .map((p, i) => {
+            let cls = "cell";
+            if (i === foundIdx || matchIdx.has(i)) cls += " found";
+            else if (algo === "binary" && field === "id" && probes.includes(i))
+              cls += " probe";
+            else if (algo === "linear" && i < checked) cls += " seen";
+            return (
+              '<span class="' +
+              cls +
+              '" title="Position ' +
+              (i + 1) +
+              '">' +
+              p.id +
+              "</span>"
+            );
+          })
+          .join("");
+        $("sLegend").innerHTML =
+          (algo === "binary" && field === "id"
+            ? '<span><i style="background:var(--hot-soft);border:1px solid var(--hot)"></i>Probed</span>'
+            : '<span><i style="background:var(--accent-soft)"></i>Checked</span>') +
+          '<span><i style="background:var(--good)"></i>Match</span><span><i style="background:var(--surface-2)"></i>Not reached</span>';
+      } else {
+        strip.innerHTML =
+          '<span class="note">The strip is shown for up to 150 products.</span>';
+        $("sLegend").innerHTML = "";
+      }
+      let trace = "";
+      if (algo === "binary" && field === "id") {
+        trace =
+          (prepInfo ? prepInfo + ". " : "") +
+          "Probed positions: " +
+          probes.map((i) => i + 1 + " (ID " + list[i].id + ")").join(" → ") +
+          (found ? "." : ". The range emptied without a match.");
+      } else {
+        trace =
+          "Checked positions 1 to " +
+          checked +
+          (found && field === "id" ? ", stopping at the match." : ".");
+      }
+      $("sTrace").textContent = trace;
+      $("sResults").innerHTML = tableHTML(matches, {
+        hl: new Set(matches.map((m) => m.id)),
+        empty: "No product matches “" + esc(q) + "”.",
+      });
+    }
+    $("sQuery").addEventListener("input", runSearch);
+    $("sField").addEventListener("change", () => {
+      $("sQuery").value = "";
+      runSearch();
+    });
+    $("sAlgo").addEventListener("change", runSearch);
+
+    /* ---------- sort tab ---------- */
+    let frames = [],
+      frameIdx = 0,
+      timer = null,
+      vals = null,
+      lastField = "price";
+    function valueMap(field) {
+      const m = new Map();
+      if (field === "name") {
+        const sorted = [...products].sort((a, b) =>
+          a.name.toLowerCase() < b.name.toLowerCase()
+            ? -1
+            : a.name.toLowerCase() > b.name.toLowerCase()
+              ? 1
+              : 0,
+        );
+        sorted.forEach((p, i) => m.set(p.id, i + 1));
+      } else products.forEach((p) => m.set(p.id, FIELD[field].get(p)));
+      return m;
+    }
+    function shortVal(field, p, m) {
+      return field === "price"
+        ? p.price >= 1000
+          ? (p.price / 1000).toFixed(p.price % 1000 ? 1 : 0) + "k"
+          : p.price
+        : field === "rating"
+          ? p.rating.toFixed(1)
+          : field === "id"
+            ? p.id
+            : "";
+    }
+    function drawBars(ids, hi, kind, done) {
+      const field = $("oField").value,
+        byId = new Map(products.map((p) => [p.id, p]));
+      const m = vals || valueMap(field);
+      const arr = ids.map((id) => m.get(id));
+      let mn = Math.min(...arr),
+        mx = Math.max(...arr);
+      const n = ids.length,
+        showLbl = n <= 14;
+      $("oBars").innerHTML = ids
+        .map((id, i) => {
+          const v = m.get(id);
+          const h = mx === mn ? 55 : 12 + ((v - mn) / (mx - mn)) * 86;
+          let cls = "bar";
+          if (done) cls += " done";
+          else if (hi.includes(i)) cls += kind === "mv" ? " mv" : " cmp";
+          const p = byId.get(id);
+          return (
+            '<div class="col" title="' +
+            esc(p.name) +
+            " · " +
+            esc(FIELD[field].label) +
+            ": " +
+            (field === "name"
+              ? esc(p.name)
+              : field === "price"
+                ? rupee(p.price)
+                : field === "rating"
+                  ? p.rating.toFixed(1)
+                  : p.id) +
+            '">' +
+            (showLbl && field !== "name"
+              ? '<span class="bv">' + shortVal(field, p, m) + "</span>"
+              : "") +
+            '<div class="' +
+            cls +
+            '" style="height:' +
+            h +
+            '%"></div></div>'
+          );
+        })
+        .join("");
+      $("oLabels").innerHTML = showLbl
+        ? ids
+            .map((id) => "<span>" + esc(byId.get(id).name) + "</span>")
+            .join("")
+        : "";
+    }
+    function showStaticBars() {
+      vals = valueMap($("oField").value);
+      if (!products.length) {
+        $("oBars").innerHTML =
+          '<div class="empty" style="width:100%">Add products to see them here.</div>';
+        $("oLabels").innerHTML = "";
+        return;
+      }
+      drawBars(
+        products.map((p) => p.id),
+        [],
+        "",
+        false,
+      );
+      $("oCplx").textContent = cplxLine($("oAlgo").value);
+      const n = products.length;
+      $("oNote").textContent =
+        n > 60
+          ? "The animation covers up to 60 products. Larger catalogues still sort and report real counts."
+          : "Sorting changes the catalogue order, like the C program does. Add random products on the Products tab for a longer animation.";
+      renderOrder();
+    }
+    function renderOrder() {
+      $("oTable").innerHTML = tableHTML(products, {
+        empty: "No products to show.",
+      });
+    }
+    function stopPlay() {
+      clearInterval(timer);
+      timer = null;
+      $("oSkip").disabled = true;
+      $("oRun").disabled = false;
+    }
+    function delay() {
+      return Math.max(6, Math.round(520 - Number($("oSpeed").value) * 5));
+    }
+    function startPlay() {
+      clearInterval(timer);
+      timer = setInterval(() => {
+        if (frameIdx >= frames.length) {
+          finishPlay();
+          return;
+        }
+        const fr = frames[frameIdx++];
+        drawBars(fr.ids, fr.hi, fr.kind, false);
+      }, delay());
+    }
+    function finishPlay() {
+      clearInterval(timer);
+      timer = null;
+      $("oSkip").disabled = true;
+      $("oRun").disabled = false;
+      drawBars(
+        products.map((p) => p.id),
+        [],
+        "",
+        true,
+      );
+    }
+    $("oSpeed").addEventListener("input", () => {
+      if (timer) startPlay();
+    });
+    $("oSkip").addEventListener("click", finishPlay);
+    ["oField", "oDir", "oAlgo"].forEach((id) =>
+      $(id).addEventListener("change", () => {
+        stopPlay();
+        showStaticBars();
+        $("oChips").innerHTML = "";
+      }),
+    );
+    $("oRun").addEventListener("click", () => {
+      if (products.length < 2) {
+        $("oNote").textContent = "Add at least two products to sort.";
+        return;
+      }
+      const field = $("oField").value,
+        dir = Number($("oDir").value),
+        algo = $("oAlgo").value,
+        cmpFn = makeCmp(field, dir);
+      const before = products.slice();
+      vals = valueMap(field);
+      const res = timedSort(algo, products, cmpFn);
+      $("oChips").innerHTML =
+        '<div class="chip"><b>' +
+        COMPLEXITY[algo].name.replace(" Sort", "") +
+        "</b><span>Algorithm</span></div>" +
+        '<div class="chip"><b>' +
+        fmtN(res.cmp) +
+        "</b><span>Comparisons</span></div>" +
+        '<div class="chip"><b>' +
+        fmtN(res.mv) +
+        "</b><span>" +
+        (algo === "merge" ? "Writes back to the array" : "Swaps") +
+        "</span></div>" +
+        '<div class="chip"><b>' +
+        fmtT(res.ms) +
+        "</b><span>Sort time</span></div>";
+      $("oCplx").textContent = cplxLine(algo);
+      if (before.length <= 60) {
+        frames = runSort(algo, before, cmpFn, true).frames;
+        frameIdx = 0;
+        $("oRun").disabled = true;
+        $("oSkip").disabled = false;
+        drawBars(
+          before.map((p) => p.id),
+          [],
+          "",
+          false,
+        );
+        startPlay();
+      } else {
+        drawBars(
+          res.sorted.map((p) => p.id),
+          [],
+          "",
+          true,
+        );
+      }
+      products = res.sorted;
+      persist();
+      renderProducts();
+      renderOrder();
+    });
+
+    /* ---------- category sort tab (one panel per category) ---------- */
+    const CAT_DEFAULTS = {
+      electronics: { field: "rating", dir: -1, algo: "merge" },
+      fashion: { field: "price", dir: 1, algo: "bubble" },
+    };
+    const CAT_ROTATE = [
+      { field: "price", dir: 1, algo: "merge" },
+      { field: "rating", dir: -1, algo: "selection" },
+      { field: "name", dir: 1, algo: "bubble" },
+    ];
+    const catSet = {};
+    let catRot = 0;
+    function settingsFor(k) {
+      if (!catSet[k])
+        catSet[k] = CAT_DEFAULTS[k]
+          ? { ...CAT_DEFAULTS[k] }
+          : { ...CAT_ROTATE[catRot++ % CAT_ROTATE.length] };
+      return catSet[k];
+    }
+    function groupCats() {
+      const m = new Map();
+      products.forEach((p) => {
+        const k = p.category.trim().toLowerCase();
+        if (!m.has(k)) m.set(k, { key: k, name: p.category.trim(), list: [] });
+        m.get(k).list.push(p);
+      });
+      return [...m.values()].sort((a, b) => a.name.localeCompare(b.name));
+    }
+    function opt(list, sel) {
+      return list
+        .map(
+          (o) =>
+            '<option value="' +
+            o[0] +
+            '"' +
+            (String(o[0]) === String(sel) ? " selected" : "") +
+            ">" +
+            o[1] +
+            "</option>",
+        )
+        .join("");
+    }
+    function newCatCard(g, idx) {
+      const s = settingsFor(g.key),
+        div = document.createElement("div");
+      div.className = "card";
+      div.dataset.key = g.key;
+      div.innerHTML =
+        '<div class="head" style="margin:0"><h2>' +
+        esc(g.name) +
+        '</h2><span class="tag' +
+        (idx % 2 ? " alt" : "") +
+        '" data-r="count"></span></div>' +
+        '<div class="fields3">' +
+        '<label>Sort by<select data-s="field" aria-label="Sort ' +
+        esc(g.name) +
+        ' by">' +
+        opt(
+          [
+            ["price", "Price"],
+            ["rating", "Rating"],
+            ["name", "Name"],
+            ["id", "Product ID"],
+          ],
+          s.field,
+        ) +
+        "</select></label>" +
+        '<label>Order<select data-s="dir" aria-label="Order for ' +
+        esc(g.name) +
+        '">' +
+        opt(
+          [
+            [1, "Low to high"],
+            [-1, "High to low"],
+          ],
+          s.dir,
+        ) +
+        "</select></label>" +
+        '<label>Algorithm<select data-s="algo" aria-label="Algorithm for ' +
+        esc(g.name) +
+        '">' +
+        opt(
+          [
+            ["bubble", "Bubble Sort"],
+            ["selection", "Selection Sort"],
+            ["merge", "Merge Sort"],
+          ],
+          s.algo,
+        ) +
+        "</select></label>" +
+        '</div><div class="chips" data-r="chips"></div><div class="cplx" data-r="cplx"></div><div class="tablewrap" data-r="table"></div>';
+      return div;
+    }
+    function fillCatCard(card, g) {
+      const s = settingsFor(g.key),
+        q = (r) => card.querySelector('[data-r="' + r + '"]');
+      const res = timedSort(s.algo, g.list, makeCmp(s.field, s.dir));
+      q("count").textContent =
+        g.list.length + " product" + (g.list.length === 1 ? "" : "s");
+      q("chips").innerHTML =
+        '<div class="chip"><b>' +
+        COMPLEXITY[s.algo].name.replace(" Sort", "") +
+        "</b><span>Algorithm</span></div>" +
+        '<div class="chip"><b>' +
+        fmtN(res.cmp) +
+        "</b><span>Comparisons</span></div>" +
+        '<div class="chip"><b>' +
+        fmtN(res.mv) +
+        "</b><span>" +
+        (s.algo === "merge" ? "Writes" : "Swaps") +
+        "</span></div>" +
+        '<div class="chip"><b>' +
+        fmtT(res.ms) +
+        "</b><span>Sort time</span></div>";
+      q("cplx").textContent = cplxLine(s.algo);
+      q("table").innerHTML = tableHTML(res.sorted);
+    }
+    function renderCat() {
+      const groups = groupCats(),
+        box = $("catPanels"),
+        keep = new Set(groups.map((g) => g.key));
+      const have = new Map();
+      [...box.children].forEach((el) => {
+        if (el.classList.contains("card") && keep.has(el.dataset.key))
+          have.set(el.dataset.key, el);
+        else el.remove();
+      });
+      if (!groups.length) {
+        box.innerHTML =
+          '<div class="card"><div class="empty">No products yet. Add some on the Products tab and each category gets its own panel.</div></div>';
+        return;
+      }
+      groups.forEach((g, i) => {
+        let el = have.get(g.key);
+        if (!el) el = newCatCard(g, i);
+        box.appendChild(el);
+        fillCatCard(el, g);
+      });
+    }
+    $("catPanels").addEventListener("change", (e) => {
+      const sel = e.target.closest("select[data-s]");
+      if (!sel) return;
+      const card = sel.closest(".card"),
+        s = settingsFor(card.dataset.key);
+      s[sel.dataset.s] =
+        sel.dataset.s === "dir" ? Number(sel.value) : sel.value;
+      const g = groupCats().find((x) => x.key === card.dataset.key);
+      if (g) fillCatCard(card, g);
+    });
+
+    /* ---------- benchmark ---------- */
+    const RUNS = [
+      ["bubble", "Bubble Sort"],
+      ["selection", "Selection Sort"],
+      ["merge", "Merge Sort"],
+    ];
+    function raceRows(el, rows, cls) {
+      el.innerHTML = rows
+        .map(
+          (r) =>
+            '<div class="racerow"><div class="name">' +
+            r[1] +
+            '</div><div class="track"><i class="' +
+            (cls || "") +
+            '" id="bar-' +
+            r[0] +
+            '"></i></div><div class="res" id="res-' +
+            r[0] +
+            '">Waiting</div></div>',
+        )
+        .join("");
+    }
+    function resetBench() {
+      raceRows($("raceSort"), RUNS);
+      raceRows(
+        $("raceSearch"),
+        [
+          ["linear", "Linear Search"],
+          ["binary", "Binary Search"],
+        ],
+        "s",
+      );
+      $("bSummary").hidden = true;
+    }
+    resetBench();
+    $("bRun").addEventListener("click", () => {
+      const n = Number($("bN").value);
+      $("bRun").disabled = true;
+      resetBench();
+      const data = new Array(n);
+      for (let i = 0; i < n; i++)
+        data[i] = {
+          id: i + 1,
+          price: Math.round(Math.random() * 9000000) / 100,
+        };
+      const priceCmp = makeCmp("price", 1);
+      const out = {};
+      const steps = [];
+      RUNS.forEach((r) =>
+        steps.push(() => {
+          $("res-" + r[0]).textContent = "Running…";
+          return new Promise((res) =>
+            setTimeout(() => {
+              const t0 = performance.now();
+              const s = runSort(r[0], data, priceCmp, false);
+              const ms = performance.now() - t0;
+              out[r[0]] = ms;
+              const mx = Math.max(...Object.values(out));
+              for (const k in out)
+                $("bar-" + k).style.width =
+                  Math.max(2, (out[k] / mx) * 100) + "%";
+              $("res-" + r[0]).textContent =
+                fmtT(ms) +
+                " · " +
+                fmtN(s.cmp) +
+                " comparisons · " +
+                fmtN(s.mv) +
+                " " +
+                (r[0] === "merge" ? "writes" : "swaps");
+              res();
+            }, 40),
+          );
+        }),
+      );
+      [
+        ["linear", "Linear Search"],
+        ["binary", "Binary Search"],
+      ].forEach((r) =>
+        steps.push(() => {
+          $("res-" + r[0]).textContent = "Running…";
+          return new Promise((res) =>
+            setTimeout(() => {
+              const L = 300;
+              let comps = 0;
+              const targets = [];
+              for (let i = 0; i < L; i++)
+                targets.push(1 + Math.floor(Math.random() * n));
+              const t0 = performance.now();
+              for (const id of targets) {
+                if (r[0] === "linear") {
+                  for (let i = 0; i < n; i++) {
+                    comps++;
+                    if (data[i].id === id) break;
+                  }
+                } else {
+                  let lo = 0,
+                    hi = n - 1;
+                  while (lo <= hi) {
+                    const mid = lo + ((hi - lo) >> 1);
+                    comps++;
+                    if (data[mid].id === id) break;
+                    if (data[mid].id < id) lo = mid + 1;
+                    else hi = mid - 1;
+                  }
+                }
+              }
+              const us = ((performance.now() - t0) / L) * 1000;
+              out[r[0]] = us;
+              const mx = Math.max(out.linear || 0, out.binary || 0) || 1;
+              ["linear", "binary"].forEach((k) => {
+                if (out[k] !== undefined)
+                  $("bar-" + k).style.width =
+                    Math.max(2, (out[k] / mx) * 100) + "%";
+              });
+              $("res-" + r[0]).textContent =
+                (us < 1000
+                  ? us.toFixed(2) + " µs"
+                  : (us / 1000).toFixed(2) + " ms") +
+                " per lookup · " +
+                (comps / L).toFixed(1) +
+                " comparisons on average";
+              res();
+            }, 40),
+          );
+        }),
+      );
+      steps
+        .reduce((p, s) => p.then(s), Promise.resolve())
+        .then(() => {
+          $("bRun").disabled = false;
+          const sb = $("bSummary");
+          sb.hidden = false;
+          const ratio = out.bubble / Math.max(out.merge, 0.001);
+          sb.textContent =
+            "At " +
+            fmtN(n) +
+            " products, Merge Sort finished about " +
+            (ratio >= 10 ? Math.round(ratio) : ratio.toFixed(1)) +
+            "× faster than Bubble Sort. Binary Search needed far fewer comparisons per lookup than Linear Search, which is the gap between O(log n) and O(n).";
+        });
+    });
+
+    /* ---------- start ---------- */
+    renderProducts();
+  })();
+</script>
